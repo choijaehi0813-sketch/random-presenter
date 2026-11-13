@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>랜덤 발표자 뽑기</title>
+<style>
+  :root {
+    --bg: #fdf8ef;
+    --card: #ffffff;
+    --ink: #1f2933;
+    --muted: #5f6b7a;
+    --line: #e3dccd;
+    --accent: #e8590c;
+    --accent-ink: #ffffff;
+    --soft: #fff1e6;
+    --ok: #2b8a3e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+    display: grid;
+    gap: 20px;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 900px) {
+    .wrap { grid-template-columns: 340px 1fr; align-items: start; }
+  }
+  h1 {
+    grid-column: 1 / -1;
+    margin: 0;
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    text-align: center;
+  }
+  .card {
+    background: var(--card);
+    border: 2px solid var(--line);
+    border-radius: 20px;
+    padding: 20px;
+  }
+  label { font-weight: 700; font-size: 1.15rem; display: block; margin-bottom: 8px; }
+  .hint { color: var(--muted); font-size: 0.95rem; margin: 0 0 10px; }
+  textarea {
+    width: 100%;
+    min-height: 220px;
+    resize: vertical;
+    font: inherit;
+    font-size: 1.15rem;
+    padding: 12px;
+    border: 2px solid var(--line);
+    border-radius: 12px;
+    background: #fffdf9;
+    color: var(--ink);
+  }
+  textarea:focus { outline: 3px solid var(--accent); outline-offset: 1px; }
+  .count-in { margin: 10px 0 0; color: var(--muted); font-size: 1rem; }
+
+  .stage { text-align: center; display: grid; gap: 18px; }
+  .status {
+    font-size: clamp(1.2rem, 3vw, 1.6rem);
+    font-weight: 700;
+    margin: 0;
+  }
+  .status b { color: var(--accent); font-size: 1.3em; }
+  .name-box {
+    background: var(--soft);
+    border: 3px dashed var(--accent);
+    border-radius: 24px;
+    min-height: clamp(180px, 34vw, 320px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  #picked {
+    font-size: clamp(3rem, 14vw, 9rem);
+    font-weight: 800;
+    line-height: 1.1;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  #picked.placeholder { font-size: clamp(1.3rem, 4vw, 2.2rem); font-weight: 700; color: var(--muted); }
+  #picked.done { font-size: clamp(1.6rem, 5vw, 3rem); color: var(--ok); }
+  #picked.rolling { color: var(--muted); }
+  #picked.pop { animation: pop 0.45s ease-out; }
+  @keyframes pop {
+    0% { transform: scale(0.6); opacity: 0.3; }
+    70% { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  button {
+    font: inherit;
+    font-weight: 800;
+    font-size: clamp(1.3rem, 4vw, 1.8rem);
+    border-radius: 16px;
+    padding: 14px 32px;
+    min-height: 64px;
+    cursor: pointer;
+    border: 3px solid var(--accent);
+    touch-action: manipulation;
+  }
+  #drawBtn { background: var(--accent); color: var(--accent-ink); flex: 1 1 220px; max-width: 420px; }
+  #resetBtn { background: #fff; color: var(--accent); flex: 0 1 180px; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button:focus-visible { outline: 4px solid var(--ink); outline-offset: 2px; }
+  .message { min-height: 1.6em; margin: 0; font-size: 1.05rem; color: var(--muted); }
+
+  .history h2 { font-size: 1.15rem; margin: 0 0 10px; text-align: left; }
+  #historyList {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  #historyList li {
+    background: #f1ece2;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 1.1rem;
+  }
+  #historyList li span { color: var(--muted); margin-right: 6px; font-size: 0.9em; }
+  .empty { color: var(--muted); text-align: left; margin: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #picked.pop { animation: none; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>🎤 랜덤 발표자 뽑기</h1>
+
+  <section class="card">
+    <label for="names">학생 이름</label>
+    <p class="hint">쉼표(,)나 줄바꿈으로 구분해서 입력하세요. 같은 이름과 빈 칸은 자동으로 정리돼요.</p>
+    <textarea id="names" autocomplete="off" spellcheck="false" placeholder="예)&#10;김하늘&#10;이바다, 박구름&#10;최별"></textarea>
+    <p class="count-in" id="countIn">입력된 학생: 0명</p>
+  </section>
+
+  <section class="card stage">
+    <p class="status" id="status">이름을 입력해 주세요</p>
+    <div class="name-box" aria-live="polite">
+      <div id="picked" class="placeholder">‘뽑기’를 누르면 여기에 이름이 나와요</div>
+    </div>
+    <div class="buttons">
+      <button id="drawBtn" type="button">뽑기</button>
+      <button id="resetBtn" type="button">초기화</button>
+    </div>
+    <p class="message" id="message"></p>
+    <div class="history">
+      <h2>이미 뽑힌 학생</h2>
+      <ol id="historyList"></ol>
+      <p class="empty" id="historyEmpty">아직 없어요</p>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  // 모든 데이터는 이 페이지의 메모리에만 있습니다. 서버 전송·브라우저 저장을 하지 않습니다.
+  var namesEl = document.getElementById('names');
+  var countInEl = document.getElementById('countIn');
+  var statusEl = document.getElementById('status');
+  var pickedEl = document.getElementById('picked');
+  var drawBtn = document.getElementById('drawBtn');
+  var resetBtn = document.getElementById('resetBtn');
+  var messageEl = document.getElementById('message');
+  var historyEl = document.getElementById('historyList');
+  var historyEmptyEl = document.getElementById('historyEmpty');
+
+  var allNames = [];   // 중복 제거된 전체 명단
+  var drawn = [];      // 뽑힌 순서대로
+  var rolling = false;
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function parseNames(text) {
+    var seen = Object.create(null);
+    var result = [];
+    text.split(/[,，、\n\r]+/).forEach(function (raw) {
+      var name = raw.replace(/\s+/g, ' ').trim();
+      if (!name || seen[name]) return;
+      seen[name] = true;
+      result.push(name);
+    });
+    return result;
+  }
+
+  function remaining() {
+    return allNames.filter(function (n) { return drawn.indexOf(n) === -1; });
+  }
+
+  function randomIndex(max) {
+    if (window.crypto && window.crypto.getRandomValues) {
+      var buf = new Uint32Array(1);
+      var limit = Math.floor(0x100000000 / max) * max;
+      do { window.crypto.getRandomValues(buf); } while (buf[0] >= limit);
+      return buf[0] % max;
+    }
+    return Math.floor(Math.random() * max);
+  }
+
+  function showPlaceholder(text) {
+    pickedEl.className = 'placeholder';
+    pickedEl.textContent = text;
+  }
+
+  function render() {
+    var left = remaining().length;
+    countInEl.textContent = '입력된 학생: ' + allNames.length + '명';
+
+    if (allNames.length === 0) {
+      statusEl.textContent = '이름을 입력해 주세요';
+    } else {
+      statusEl.innerHTML = '';
+      statusEl.append('남은 학생 ');
+      var b = document.createElement('b');
+      b.textContent = left;
+      statusEl.append(b, '명 / 전체 ' + allNames.length + '명');
+    }
+
+    drawBtn.disabled = rolling || allNames.length === 0 || left === 0;
+    resetBtn.disabled = rolling || drawn.length === 0;
+
+    historyEl.innerHTML = '';
+    drawn.forEach(function (name, i) {
+      var li = document.createElement('li');
+      var num = document.createElement('span');
+      num.textContent = (i + 1) + '.';
+      li.append(num, name);
+      historyEl.appendChild(li);
+    });
+    historyEmptyEl.hidden = drawn.length > 0;
+  }
+
+  function showAllDone() {
+    pickedEl.className = 'done';
+    pickedEl.textContent = '🎉 모든 학생이 뽑혔어요!';
+    messageEl.textContent = '다시 하려면 ‘초기화’를 눌러 주세요.';
+  }
+
+  namesEl.addEventListener('input', function () {
+    allNames = parseNames(namesEl.value);
+    // 명단에서 지워진 이름은 뽑힌 목록에서도 뺍니다.
+    drawn = drawn.filter(function (n) { return allNames.indexOf(n) !== -1; });
+    messageEl.textContent = '';
+    if (allNames.length > 0 && remaining().length === 0) {
+      showAllDone();
+    } else if (pickedEl.className === 'done') {
+      showPlaceholder('‘뽑기’를 누르면 여기에 이름이 나와요');
+    }
+    render();
+  });
+
+  drawBtn.addEventListener('click', function () {
+    var pool = remaining();
+    if (rolling || pool.length === 0) return;
+    var winner = pool[randomIndex(pool.length)];
+    messageEl.textContent = '';
+
+    function finish() {
+      drawn.push(winner);
+      rolling = false;
+      pickedEl.className = '';
+      void pickedEl.offsetWidth; // 애니메이션 다시 시작
+      pickedEl.className = 'pop';
+      pickedEl.textContent = winner;
+      render();
+      if (remaining().length === 0) {
+        messageEl.textContent = '🎉 모든 학생이 뽑혔어요! 다시 하려면 ‘초기화’를 눌러 주세요.';
+      }
+    }
+
+    if (reduceMotion || pool.length === 1) { finish(); return; }
+
+    rolling = true;
+    render();
+    var ticks = 0, total = 14;
+    (function spin() {
+      pickedEl.className = 'rolling';
+      pickedEl.textContent = pool[randomIndex(pool.length)];
+      ticks++;
+      if (ticks < total) {
+        setTimeout(spin, 40 + ticks * 8);
+      } else {
+        finish();
+      }
+    })();
+  });
+
+  resetBtn.addEventListener('click', function () {
+    if (rolling) return;
+    drawn = [];
+    messageEl.textContent = '처음부터 다시 뽑을 수 있어요.';
+    showPlaceholder('‘뽑기’를 누르면 여기에 이름이 나와요');
+    render();
+  });
+
+  // 새로고침 시 브라우저가 남겨 둔 입력값이 있으면 반영
+  allNames = parseNames(namesEl.value);
+  render();
+})();
+</script>
+</body>
+</html>
